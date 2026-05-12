@@ -63,18 +63,21 @@ func main() {
 
 			log.Printf("[%s] onboarding...", countyID)
 
+			log.Printf("[%s] detect source type...", countyID)
 			sourceType, err := fetcher.DetectSourceType(ctx, url)
 			if err != nil {
 				log.Printf("[%s] detect failed: %v", countyID, err)
 				return
 			}
+			log.Printf("[%s] source_type=%s, fetching...", countyID, sourceType)
 
 			fetch := fetcher.New(sourceType)
-			result, err := fetch.Fetch(ctx, url)
+			result, err := fetch.Fetch(ctx, url, nil)
 			if err != nil {
 				log.Printf("[%s] fetch failed: %v", countyID, err)
 				return
 			}
+			log.Printf("[%s] fetch OK html_bytes=%d network_calls=%d", countyID, len(result.Body), len(result.NetworkCalls))
 
 			var networkSummary []string
 			for _, nc := range result.NetworkCalls {
@@ -90,11 +93,13 @@ func main() {
 			}
 
 			prompt := generator.BuildPrompt(url, sourceType, result.Body, networkSummary)
+			log.Printf("[%s] calling generator (prompt_runes=%d)...", countyID, len([]rune(prompt)))
 			connConfig, err := gen.GenerateConnectorConfig(ctx, prompt)
 			if err != nil {
 				log.Printf("[%s] generate failed: %v", countyID, err)
 				return
 			}
+			log.Printf("[%s] generator OK (config source_type=%q)", countyID, connConfig.SourceType)
 
 			if connConfig.SourceType != "" {
 				sourceType = connConfig.SourceType
@@ -105,6 +110,7 @@ func main() {
 				log.Printf("[%s] marshal failed: %v", countyID, err)
 				return
 			}
+			log.Printf("[%s] upserting county row (config_bytes=%d)...", countyID, len(configJSON))
 			now := time.Now()
 			err = store.Upsert(ctx, &registry.CountyConnector{
 				CountyID:        countyID,

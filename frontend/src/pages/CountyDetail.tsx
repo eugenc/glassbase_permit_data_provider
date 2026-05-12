@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import RepairDrawer from '../components/repairs/RepairDrawer';
 import { useRepairCounty, useTriggerRun } from '../hooks/useCounties';
 
 export default function CountyDetail() {
@@ -21,6 +23,7 @@ export default function CountyDetail() {
 
   const triggerRun = useTriggerRun();
   const repair = useRepairCounty();
+  const [showAiRepair, setShowAiRepair] = useState(false);
 
   if (isLoading) return <p className="text-text-3">Loading...</p>;
   if (!county) return <p className="text-status-broken">County not found.</p>;
@@ -70,8 +73,13 @@ export default function CountyDetail() {
             loading={repair.isPending}
             onClick={() => repair.mutate(county.county_id)}
           >
-            Repair connector
+            Regenerate connector
           </Button>
+          {(county.status === 'broken' || county.status === 'paused') && (
+            <Button size="sm" variant="secondary" onClick={() => setShowAiRepair(true)}>
+              Claude Code repair
+            </Button>
+          )}
         </div>
       </div>
 
@@ -100,6 +108,14 @@ export default function CountyDetail() {
           )}
         </div>
       </div>
+
+      {showAiRepair ? (
+        <RepairDrawer
+          countyId={county.county_id}
+          countyName={county.county_name}
+          onClose={() => setShowAiRepair(false)}
+        />
+      ) : null}
     </div>
   );
 }

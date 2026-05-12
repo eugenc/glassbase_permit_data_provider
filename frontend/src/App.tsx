@@ -8,6 +8,7 @@ import Counties from './pages/Counties';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Permits from './pages/Permits';
+import Repairs from './pages/Repairs';
 import RunHistory from './pages/RunHistory';
 
 const queryClient = new QueryClient({
@@ -26,6 +27,7 @@ function ProtectedRoutes() {
         <Route path="/counties/:id" element={<CountyDetail />} />
         <Route path="/counties/:id/permits" element={<Permits />} />
         <Route path="/runs" element={<RunHistory />} />
+        <Route path="/repairs" element={<Repairs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

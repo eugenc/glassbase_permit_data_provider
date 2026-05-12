@@ -1,0 +1,145 @@
+name: Daily county repair
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+    inputs:
+      county_id:
+        description: 'Optional single county ID (otherwise all broken)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  list-broken:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_jobs: ${{ steps.set-matrix.outputs.has_jobs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve county IDs
+        id: set-matrix
+        env:
+          ALLOW_PROD_DB: 'true'
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          go mod download
+          mkdir -p /tmp/gb-matrix
+          if [ -n "${{ github.event.inputs.county_id }}" ]; then
+            printf '%s' '["${{ github.event.inputs.county_id }}"]' > /tmp/gb-matrix/counties.json
+          elif [ -z "${DATABASE_URL}" ]; then
+            echo "::warning::PROD_DATABASE_URL secret missing — skipping repair matrix"
+            echo '[]' > /tmp/gb-matrix/counties.json
+          else
+            go run ./cmd/list-broken | tee /tmp/gb-matrix/counties.json
+          fi
+          INCLUDE="$(jq -c 'map({county: .})' /tmp/gb-matrix/counties.json)"
+          echo "matrix={\"include\":${INCLUDE}}" >> "$GITHUB_OUTPUT"
+          COUNT=$(jq 'length' /tmp/gb-matrix/counties.json)
+          if [ "${COUNT:-0}" -gt 0 ]; then
+            echo "has_jobs=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_jobs=false" >> $GITHUB_OUTPUT
+          fi
+
+  repair:
+    needs: list-broken
+    if: needs.list-broken.outputs.has_jobs == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.list-broken.outputs.matrix) }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Rod / headless (Chromium)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+          echo "CHROME_BIN=$(which chromium-browser)" >> $GITHUB_ENV
+
+      - run: go mod download
+
+      - name: Git identity
+        run: |
+          git config user.name "Claude repair bot"
+          git config user.email "claude-repair-bot@users.noreply.github.com"
+
+      - name: Claude repair + optional PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COUNTY="${{ matrix.county }}"
+          BRANCH="repair/${COUNTY}-${{ github.run_id }}"
+          BASE_SHA=$(git rev-parse HEAD)
+          git checkout -b "$BRANCH"
+
+          PROMPT="$(
+          cat <<'EOF'
+You are repairing a broken GlassBase connector in CI.
+Repo: github.com/echayko/glassbase_permit_data_provider
+Read CLAUDE.md then run diagnostics and scrape-one verification.
+
+County ID: REPLACE_COUNTY_ID
+
+Steps (strict order):
+  1. go run ./cmd/diagnose --county=REPLACE_COUNTY_ID
+  2. Decide root cause; update connector JSON in Postgres (psql) or fix Go fetcher/scraper code.
+  3. Verify: go run ./cmd/scrape-one --county=REPLACE_COUNTY_ID (must report found > 0 if data exists).
+  4. If only DB changed: summarize in REPAIR SUMMARY without requiring a git commit.
+  5. If Go code changed: git add commits and leave them on this branch; push will happen next.
+
+Emit REPAIR SUMMARY block matching CLAUDE.md conventions.
+EOF
+          )"
+
+          PROMPT="${PROMPT//REPLACE_COUNTY_ID/${COUNTY}}"
+
+          mkdir -p /tmp/claude
+          LOG=/tmp/claude/repair-${COUNTY}.txt
+          claude --print --dangerously-skip-permissions "${PROMPT}" 2>&1 | tee "${LOG}"
+
+          if git rev-list --count "${BASE_SHA}..HEAD" | grep -q '^0$'; then
+            echo "No git commits produced for ${COUNTY}"
+            exit 0
+          fi
+
+          git push origin "HEAD:refs/heads/${BRANCH}"
+
+          gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --title "repair(county): automated fix for ${COUNTY}" \
+            --body "$(printf 'Automated repair run %s county `%s`\n```\n%s\n```\n' "${{ github.run_id }}" "${COUNTY}" "$(tail -n 40 "${LOG}")")"

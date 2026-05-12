@@ -15,22 +15,15 @@ func StaticHandler() http.Handler {
 	if err != nil {
 		panic("static FS sub web: " + err.Error())
 	}
-	fileServer := http.FileServer(http.FS(sub))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		up := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-		try := up
-		if try == "" || try == "." {
-			try = "index.html"
-		} else if _, err := fs.Stat(sub, try); err != nil {
-			try = "index.html"
+		name := up
+		if name == "" || name == "." {
+			name = "index.html"
+		} else if _, err := fs.Stat(sub, name); err != nil {
+			name = "index.html"
 		}
-
-		req := r.Clone(r.Context())
-		u := *r.URL
-		u.Path = "/" + try
-		req.URL = &u
-
-		fileServer.ServeHTTP(w, req)
+		http.ServeFileFS(w, r, sub, name)
 	})
 }

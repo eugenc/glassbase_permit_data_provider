@@ -21,7 +21,7 @@ type Scheduler struct {
 func NewScheduler(pool *pgxpool.Pool, cfg *config.Config) *Scheduler {
 	return &Scheduler{
 		cron:    cron.New(cron.WithSeconds()),
-		workers: NewWorkerPool(pool, cfg.MaxConcurrent),
+		workers: NewWorkerPool(pool, cfg.MaxConcurrent, cfg.UpsertBatchMaxRows, cfg.UpsertMaxBindParams),
 		pool:    pool,
 		cfg:     cfg,
 	}

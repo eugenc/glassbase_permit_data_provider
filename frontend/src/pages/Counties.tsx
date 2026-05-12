@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import AddCountyModal from '../components/counties/AddCountyModal';
 import CountyRow from '../components/counties/CountyRow';
 import Button from '../components/ui/Button';
@@ -86,6 +87,14 @@ export default function Counties() {
       <div className="flex items-center justify-between">
         <div>
           <p className="mt-0.5 text-sm text-text-2">{data?.total ?? '—'} counties configured</p>
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-text-3">
+            <Link to="/repairs" className="font-medium text-brand hover:underline">
+              AI repairs log
+            </Link>{' '}
+            · On each row, <span className="text-text-2">AI repair</span> (Claude Code) shows when status
+            is <span className="font-medium text-text-2">broken</span> or{' '}
+            <span className="font-medium text-text-2">paused</span>.
+          </p>
         </div>
         <Button onClick={() => setShowAdd(true)}>+ Add County</Button>
       </div>

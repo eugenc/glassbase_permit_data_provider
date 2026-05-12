@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -11,7 +12,8 @@ import (
 
 type HTMLFetcher struct{}
 
-func (f *HTMLFetcher) Fetch(ctx context.Context, url string) (*FetchResult, error) {
+func (f *HTMLFetcher) Fetch(ctx context.Context, url string, _ *FetchContext) (*FetchResult, error) {
+	log.Printf("fetcher/html: GET %s", url)
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -43,6 +45,7 @@ func (f *HTMLFetcher) Fetch(ctx context.Context, url string) (*FetchResult, erro
 		return nil, fmt.Errorf("fetch %s: empty body", url)
 	}
 
+	log.Printf("fetcher/html: OK status=%d bytes=%d", resp.StatusCode, len(body))
 	return &FetchResult{
 		Body:       string(body),
 		StatusCode: resp.StatusCode,

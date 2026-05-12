@@ -20,13 +20,13 @@ type WorkerPool struct {
 	sem    chan struct{}
 }
 
-func NewWorkerPool(pool *pgxpool.Pool, maxConcurrent int) *WorkerPool {
+func NewWorkerPool(pool *pgxpool.Pool, maxConcurrent, upsertBatchMaxRows, upsertMaxBindParams int) *WorkerPool {
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrent
 	}
 	return &WorkerPool{
 		pool:   pool,
-		engine: scraper.NewEngine(pool),
+		engine: scraper.NewEngine(pool, upsertBatchMaxRows, upsertMaxBindParams),
 		runlog: NewRunLog(pool),
 		sem:    make(chan struct{}, maxConcurrent),
 	}

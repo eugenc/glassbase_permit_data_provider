@@ -16,7 +16,11 @@ RUN go mod download
 COPY . .
 COPY --from=frontend /src/internal/static/web ./internal/static/web
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /glassbase ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/glassbase ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/scrape-one ./cmd/scrape-one && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/diagnose ./cmd/diagnose && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/onboard ./cmd/onboard && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/cc-repair ./cmd/cc-repair
 
 FROM chromedp/headless-shell:latest AS chrome
 
@@ -26,12 +30,21 @@ WORKDIR /app
 
 COPY --from=chrome /headless-shell /headless-shell
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata nodejs npm
 
-COPY --from=builder /glassbase /app/glassbase
-COPY migrations/ /app/migrations/
+RUN npm install -g @anthropic-ai/claude-code
+
+COPY --from=builder /out/glassbase /app/glassbase
+COPY --from=builder /out/scrape-one /app/scrape-one
+COPY --from=builder /out/diagnose /app/diagnose
+COPY --from=builder /out/onboard /app/onboard
+COPY --from=builder /out/cc-repair /app/cc-repair
+COPY --from=builder /app/migrations /app/migrations
+
+COPY CLAUDE.md .claude /app/
 
 ENV CHROME_BIN=/headless-shell/headless-shell
+ENV GLASSBASE_CLI_WRAPPER=binary
 
 EXPOSE 8080
 CMD ["/app/glassbase"]

@@ -10,7 +10,9 @@ type ConnectorConfig struct {
 	API        *APIRequestConfig `json:"api,omitempty"`
 }
 
-// APIRequestConfig optional HTTP details when source_type is "api".
+// APIRequestConfig optional HTTP details when source_type is "api" or "csv" (GET bulk download).
+// Body may contain "{{PAGE}}" and "{{PAGE_SIZE}}" placeholders; the API fetcher substitutes
+// the current page index (1-based) and pagination.page_size each request.
 type APIRequestConfig struct {
 	Endpoint string            `json:"endpoint,omitempty"`
 	Method   string            `json:"method,omitempty"`
@@ -26,11 +28,12 @@ type Extraction struct {
 }
 
 type FieldMapping struct {
-	Name     string `json:"name"`
-	Selector string `json:"selector,omitempty"`
-	JSONPath string `json:"json_path,omitempty"`
-	Attr     string `json:"attr,omitempty"`
-	Type     string `json:"type"`
+	Name      string `json:"name"`
+	Selector  string `json:"selector,omitempty"`
+	JSONPath  string `json:"json_path,omitempty"`
+	CsvColumn string `json:"csv_column,omitempty"`
+	Attr      string `json:"attr,omitempty"`
+	Type      string `json:"type"`
 }
 
 // Pagination tells the scraper how to get the next page.
@@ -54,4 +57,6 @@ type Dedup struct {
 type RateLimit struct {
 	DelayBetweenRequestsMs int `json:"delay_between_requests_ms"`
 	MaxConcurrent          int `json:"max_concurrent"`
+	// UpsertBatchMaxRows caps multi-row INSERT batch size for this county (overrides global default when > 0).
+	UpsertBatchMaxRows int `json:"upsert_batch_max_rows,omitempty"`
 }

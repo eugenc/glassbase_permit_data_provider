@@ -69,7 +69,16 @@ func (p *Paginator) Next(ctx context.Context) (*Page, bool, error) {
 		p.pendingURL = ""
 	}
 
-	result, err := p.fetcher.Fetch(ctx, fetchURL)
+	pageSize := p.config.Pagination.PageSize
+	if pageSize <= 0 {
+		pageSize = 25
+	}
+	fc := &fetcher.FetchContext{
+		PageNum:  p.currentPage + 1,
+		PageSize: pageSize,
+	}
+
+	result, err := p.fetcher.Fetch(ctx, fetchURL, fc)
 	if err != nil {
 		return nil, false, err
 	}

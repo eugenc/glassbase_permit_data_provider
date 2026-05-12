@@ -2,6 +2,12 @@ package fetcher
 
 import "context"
 
+// FetchContext carries per-request values for paginated API bodies (optional).
+type FetchContext struct {
+	PageNum  int
+	PageSize int
+}
+
 // FetchResult is what every fetcher returns.
 type FetchResult struct {
 	Body         string
@@ -20,11 +26,12 @@ type NetworkCall struct {
 }
 
 // Fetcher fetches a URL and returns content.
+// FetchContext may be nil; API fetchers use it to expand {{PAGE}} / {{PAGE_SIZE}} in POST bodies.
 type Fetcher interface {
-	Fetch(ctx context.Context, url string) (*FetchResult, error)
+	Fetch(ctx context.Context, url string, fc *FetchContext) (*FetchResult, error)
 }
 
-// New returns a fetcher for sourceType: "html", "spa", or "api".
+// New returns a fetcher for sourceType: "html", "spa", "api", or "csv".
 // For API mode with custom endpoint/headers, use NewWithOptions.
 func New(sourceType string) Fetcher {
 	return NewWithOptions(Options{SourceType: sourceType})
@@ -41,7 +48,7 @@ func NewWithOptions(opts Options) Fetcher {
 	switch opts.SourceType {
 	case "spa":
 		return &SPAFetcher{}
-	case "api":
+	case "api", "csv":
 		if opts.API != nil {
 			return opts.API
 		}

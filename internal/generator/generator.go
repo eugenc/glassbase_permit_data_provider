@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -37,6 +38,8 @@ func (g *Generator) GenerateConnectorConfig(ctx context.Context, prompt string) 
 		model = "claude-sonnet-4-20250514"
 	}
 
+	log.Printf("generator: building request model=%s prompt_runes=%d", model, len([]rune(prompt)))
+
 	reqBody, err := json.Marshal(anthropicRequest{
 		Model:     model,
 		MaxTokens: 4096,
@@ -56,6 +59,7 @@ func (g *Generator) GenerateConnectorConfig(ctx context.Context, prompt string) 
 	req.Header.Set("x-api-key", g.APIKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
+	log.Printf("generator: POST /v1/messages body_bytes=%d", len(reqBody))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic api: %w", err)
@@ -66,6 +70,8 @@ func (g *Generator) GenerateConnectorConfig(ctx context.Context, prompt string) 
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("generator: response status=%d body_bytes=%d", resp.StatusCode, len(body))
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("anthropic api %d: %s", resp.StatusCode, body)
@@ -80,5 +86,11 @@ func (g *Generator) GenerateConnectorConfig(ctx context.Context, prompt string) 
 		return nil, fmt.Errorf("empty response from claude")
 	}
 
-	return parseConnectorConfig(ar.Content[0].Text)
+	log.Printf("generator: parsing connector config from model text runes=%d", len([]rune(ar.Content[0].Text)))
+	out, err := parseConnectorConfig(ar.Content[0].Text)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("generator: parse OK")
+	return out, nil
 }

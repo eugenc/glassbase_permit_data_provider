@@ -29,9 +29,9 @@ Your task: Analyze this page and return a JSON object that tells a Go scraper ho
 building permit records from it. The JSON must exactly follow this schema:
 
 {
-  "source_type": "html" | "spa" | "api",
+  "source_type": "html" | "spa" | "api" | "csv",
   "api": {
-    "endpoint": "<full URL if using API, optional>",
+    "endpoint": "<full URL if using API or CSV bulk download, optional>",
     "method": "GET",
     "headers": {},
     "body": ""
@@ -44,6 +44,7 @@ building permit records from it. The JSON must exactly follow this schema:
         "name": "<snake_case field name>",
         "selector": "<CSS selector relative to record container — HTML/SPA>",
         "json_path": "<dot-notation path within each record — API>",
+        "csv_column": "<exact CSV header for this field — CSV only>",
         "attr": "<HTML attribute if not innerText, e.g. href>",
         "type": "text" | "date" | "number" | "url"
       }
@@ -72,8 +73,9 @@ Rules:
 1. Include ALL fields visible on the page — permit number, address, date, type, status, contractor, owner, value, description, sq footage, etc.
 2. The unique_field MUST be a field that appears in every record (typically permit number or ID).
 3. If pagination is not visible, set type to "none".
-4. If the page uses an API (detected from network calls above), set source_type to "api" and use records_path + json_path instead of CSS selectors; fill "api.endpoint" with the list/search URL if known.
-5. Return ONLY the JSON object. No explanation, no markdown, no code fences.`,
+4. If the page uses an API (detected from network calls above), set source_type to "api" and use records_path + json_path instead of CSS selectors; fill "api.endpoint" with the list/search URL if known. When the HTTP body is a JSON array at the root (typical for Socrata /resource/*.json), set records_path to "@this" (not "$", which does not apply to this scraper).
+5. If the jurisdiction exposes an ArcGIS/Open Data bulk CSV or similar single-file export, prefer source_type "csv": set api.endpoint + method GET, pagination.type "none", and map csv_column per field from the CSV header row; omit record_selector and records_path.
+6. Return ONLY the JSON object. No explanation, no markdown, no code fences.`,
 		url, sourceType, networkSection, truncate(pageContent, 8000))
 }
 

@@ -1,24 +1,32 @@
 package main
 
 import (
+	"flag"
 	"log"
-	"os"
+	"strings"
 
-	"github.com/joho/godotenv"
-
+	"github.com/echayko/glassbase_permit_data_provider/config"
 	"github.com/echayko/glassbase_permit_data_provider/internal/db"
 )
 
 func main() {
-	_ = godotenv.Load()
+	urlFlag := flag.String("url", "", "postgres URL for this run only (highest precedence)")
+	envFlag := flag.String("env", "", "optional: dev|prod → DATABASE_URL_DEV / DATABASE_URL_PROD (skipped when DATABASE_URL/DATABASE_PUBLIC_URL take precedence)")
+	flag.Parse()
 
-	// Railway: DATABASE_URL uses an internal host on the platform; DATABASE_PUBLIC_URL works from your machine.
-	databaseURL := os.Getenv("DATABASE_PUBLIC_URL")
-	if databaseURL == "" {
-		databaseURL = os.Getenv("DATABASE_URL")
+	config.LoadDotenv()
+
+	databaseURL := strings.TrimSpace(*urlFlag)
+	if databaseURL != "" {
+		log.Println("migrate: using -url")
+	} else {
+		databaseURL = config.PickDatabaseURL(strings.TrimSpace(*envFlag))
+		if databaseURL != "" && strings.TrimSpace(*envFlag) != "" && strings.TrimSpace(*urlFlag) == "" {
+			log.Printf("migrate: resolved with -env=%s", strings.TrimSpace(*envFlag))
+		}
 	}
 	if databaseURL == "" {
-		log.Fatal("missing DATABASE_URL or DATABASE_PUBLIC_URL")
+		log.Fatal(`migrate: missing URL — use -url, or set DATABASE_URL, or DATABASE_URL_DEV + DATABASE_URL_PROD (+ optional -env dev|prod)`)
 	}
 
 	if err := db.RunMigrations(databaseURL); err != nil {

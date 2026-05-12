@@ -10,6 +10,7 @@ import (
 	"github.com/echayko/glassbase_permit_data_provider/internal/fetcher"
 	"github.com/echayko/glassbase_permit_data_provider/internal/generator"
 	"github.com/echayko/glassbase_permit_data_provider/internal/registry"
+	"github.com/echayko/glassbase_permit_data_provider/internal/repair"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -59,7 +60,7 @@ func (r *Repairer) RepairCounty(ctx context.Context, countyID string) RepairResu
 
 	log.Printf("[%s] repair: re-fetching page...", countyID)
 	f := fetcher.New(sourceType)
-	fetchResult, err := f.Fetch(ctx, county.URL)
+	fetchResult, err := f.Fetch(ctx, county.URL, nil)
 	if err != nil {
 		result.Reason = fmt.Sprintf("fetch: %v", err)
 		return result
@@ -117,25 +118,47 @@ func (r *Repairer) RepairCounty(ctx context.Context, countyID string) RepairResu
 	return result
 }
 
-// RepairBroken finds all broken counties and attempts to repair each one.
+// RepairBroken invokes Claude Code (internal/repair) for each county in status=broken.
 func (r *Repairer) RepairBroken(ctx context.Context) {
 	store := registry.NewStore(r.pool)
 	counties, err := store.GetByStatus(ctx, "broken")
 	if err != nil {
-		log.Printf("repair: load broken: %v", err)
+		log.Printf("[repair-ai] cron: load broken counties: %v", err)
 		return
 	}
 
 	if len(counties) == 0 {
-		log.Println("repair: no broken counties found")
+		log.Println("[repair-ai] cron: no broken counties found")
 		return
 	}
 
-	log.Printf("repair: attempting to repair %d broken counties", len(counties))
-	for _, county := range counties {
-		res := r.RepairCounty(ctx, county.CountyID)
-		if !res.Success {
-			log.Printf("repair: [%s] failed — %s", county.CountyID, res.Reason)
+	log.Printf("[repair-ai] cron: launching Claude Code for %d broken counties", len(counties))
+	cc := repair.NewRunner(r.pool)
+	staggerSecs := repair.LimitsFromEnv().CronStaggerSecs
+
+	for i := range counties {
+		county := counties[i]
+		if staggerSecs > 0 && i > 0 {
+			delay := time.Duration(staggerSecs) * time.Second
+			log.Printf("[repair-ai] cron: sleeping %v before next county (%s)", delay, county.CountyID)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(delay):
+			}
+		}
+		out, err := cc.RepairCounty(ctx, &county, "zero_records")
+		if err != nil {
+			log.Printf("[repair-ai] cron: county=%s runner error: %v", county.CountyID, err)
+			_ = store.SetStatus(ctx, county.CountyID, "paused")
+			continue
+		}
+		if out.Success {
+			_ = store.SetStatus(ctx, county.CountyID, "active")
+			log.Printf("[repair-ai] cron: county=%s repaired and reactivated (run_id=%d)", county.CountyID, out.RunID)
+		} else {
+			_ = store.SetStatus(ctx, county.CountyID, "paused")
+			log.Printf("[repair-ai] cron: county=%s could not repair — marked paused (run_id=%d)", county.CountyID, out.RunID)
 		}
 	}
 }

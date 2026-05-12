@@ -53,6 +53,8 @@ func NewServer(pool *pgxpool.Pool, sched *runner.Scheduler, cfg *config.Config) 
 
 	apiMux.HandleFunc("GET /dashboard", deps.Dashboard())
 
+	apiMux.HandleFunc("GET /repairs/recent", deps.RecentRepairs())
+
 	apiMux.HandleFunc("GET /counties", deps.ListCounties())
 	apiMux.HandleFunc("POST /counties", deps.AddCounty())
 
@@ -63,6 +65,7 @@ func NewServer(pool *pgxpool.Pool, sched *runner.Scheduler, cfg *config.Config) 
 	apiMux.HandleFunc("DELETE /counties/{id}", deps.DeleteCounty())
 	apiMux.HandleFunc("POST /counties/{id}/run", deps.TriggerCountyRun())
 	apiMux.HandleFunc("POST /counties/{id}/repair", deps.RepairCounty())
+	apiMux.HandleFunc("POST /counties/{id}/repair-cc", deps.RepairWithClaudeCode())
 	apiMux.HandleFunc("GET /counties/{id}", deps.GetCounty())
 
 	apiMux.HandleFunc("GET /runs/error-rate", deps.ErrorRate())

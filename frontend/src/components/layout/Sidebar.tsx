@@ -1,14 +1,20 @@
 import { NavLink } from 'react-router-dom';
+import { useRepairs } from '../../hooks/useRepairs';
 import { useAuth } from '../../auth/AuthContext';
 
 const navItems = [
   { path: '/', label: 'Dashboard' },
   { path: '/counties', label: 'Counties' },
   { path: '/runs', label: 'Run History' },
+  { path: '/repairs', label: 'AI repairs' },
 ];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const repairs = useRepairs();
+
+  const runningRepairs =
+    repairs.data?.repairs?.filter((r) => r.status === 'running').length ?? 0;
 
   return (
     <aside className="fixed left-0 top-0 z-20 flex h-screen w-[240px] flex-col border-r border-border bg-canvas">
@@ -28,7 +34,14 @@ export default function Sidebar() {
                 : 'text-text-2 hover:bg-surface hover:text-text-1')
             }
           >
-            {item.label}
+            <span className="flex flex-1 items-center justify-between gap-2">
+              <span>{item.label}</span>
+              {item.path === '/repairs' && runningRepairs > 0 ? (
+                <span className="min-w-[1.25rem] rounded-full bg-white/25 px-1.5 py-0.5 text-center text-[10px] leading-none font-bold text-white">
+                  {runningRepairs}
+                </span>
+              ) : null}
+            </span>
           </NavLink>
         ))}
       </nav>

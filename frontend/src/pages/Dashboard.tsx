@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useDashboard } from '../hooks/useDashboard';
 import PermitsBarChart from '../components/dashboard/PermitsBarChart';
 import RecentErrors from '../components/dashboard/RecentErrors';
@@ -24,6 +25,12 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <p className="text-sm text-text-2">Last batch run: {lastRun}</p>
+        <p className="mt-1 text-xs text-text-3">
+          <Link to="/repairs" className="font-medium text-brand hover:underline">
+            View AI repairs
+          </Link>{' '}
+          (Claude Code runs & history)
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

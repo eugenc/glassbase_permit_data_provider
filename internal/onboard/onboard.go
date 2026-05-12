@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/echayko/glassbase_permit_data_provider/config"
@@ -19,16 +20,20 @@ func Run(ctx context.Context, pool *pgxpool.Pool, cfg *config.Config, countyID, 
 		return fmt.Errorf("county_id, county_name, state, and url are required")
 	}
 
+	log.Printf("onboard[%s] start url=%s", countyID, url)
+
 	sourceType, err := fetcher.DetectSourceType(ctx, url)
 	if err != nil {
 		return fmt.Errorf("detect source: %w", err)
 	}
+	log.Printf("onboard[%s] detected source_type=%s", countyID, sourceType)
 
 	f := fetcher.New(sourceType)
-	result, err := f.Fetch(ctx, url)
+	result, err := f.Fetch(ctx, url, nil)
 	if err != nil {
 		return fmt.Errorf("fetch: %w", err)
 	}
+	log.Printf("onboard[%s] fetch done: html_bytes=%d network_calls=%d", countyID, len(result.Body), len(result.NetworkCalls))
 
 	var networkSummary []string
 	for _, nc := range result.NetworkCalls {
@@ -44,11 +49,14 @@ func Run(ctx context.Context, pool *pgxpool.Pool, cfg *config.Config, countyID, 
 	}
 
 	prompt := generator.BuildPrompt(url, sourceType, result.Body, networkSummary)
+	log.Printf("onboard[%s] prompt built: runes=%d network_summary_lines=%d", countyID, len([]rune(prompt)), len(networkSummary))
+
 	gen := &generator.Generator{APIKey: cfg.AnthropicAPIKey, Model: cfg.AnthropicModel}
 	connCfg, err := gen.GenerateConnectorConfig(ctx, prompt)
 	if err != nil {
 		return fmt.Errorf("generator: %w", err)
 	}
+	log.Printf("onboard[%s] generator returned connector config (source_type in config=%q)", countyID, connCfg.SourceType)
 
 	if connCfg.SourceType != "" {
 		sourceType = connCfg.SourceType
@@ -58,10 +66,12 @@ func Run(ctx context.Context, pool *pgxpool.Pool, cfg *config.Config, countyID, 
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
+	log.Printf("onboard[%s] connector JSON bytes=%d", countyID, len(configJSON))
 
 	now := time.Now()
 	store := registry.NewStore(pool)
-	return store.Upsert(ctx, &registry.CountyConnector{
+	log.Printf("onboard[%s] upserting registry row", countyID)
+	err = store.Upsert(ctx, &registry.CountyConnector{
 		CountyID:        countyID,
 		CountyName:      countyName,
 		State:           state,
@@ -71,4 +81,9 @@ func Run(ctx context.Context, pool *pgxpool.Pool, cfg *config.Config, countyID, 
 		Status:          "active",
 		LastGeneratedAt: &now,
 	})
+	if err != nil {
+		return err
+	}
+	log.Printf("onboard[%s] complete", countyID)
+	return nil
 }
