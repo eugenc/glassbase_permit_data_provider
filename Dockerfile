@@ -41,7 +41,9 @@ COPY --from=builder /out/onboard /app/onboard
 COPY --from=builder /out/cc-repair /app/cc-repair
 COPY --from=builder /app/migrations /app/migrations
 
-COPY CLAUDE.md .claude /app/
+# .claude/ is gitignored locally; Railway clone has no such path. CLAUDE.md is enough for context.
+COPY CLAUDE.md /app/
+RUN mkdir -p /app/.claude
 
 ENV CHROME_BIN=/headless-shell/headless-shell
 ENV GLASSBASE_CLI_WRAPPER=binary
