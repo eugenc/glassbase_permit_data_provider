@@ -20,3 +20,7 @@ onboard:
 
 bulk-onboard:
 	go run ./cmd/bulk-onboard $(CSV)
+
+# Requires: brew install jq (or jq in PATH), railway CLI linked to project.
+env-railway:
+	./scripts/sync-env-from-railway.sh

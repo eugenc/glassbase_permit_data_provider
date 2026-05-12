@@ -3,6 +3,8 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"os"
+	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -11,6 +13,16 @@ import (
 )
 
 func RunMigrations(databaseURL string) error {
+	migrationsDir := os.Getenv("MIGRATIONS_PATH")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	absDir, err := filepath.Abs(migrationsDir)
+	if err != nil {
+		return err
+	}
+	sourceURL := "file://" + filepath.ToSlash(absDir)
+
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return err
@@ -23,7 +35,7 @@ func RunMigrations(databaseURL string) error {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		sourceURL,
 		"postgres",
 		driver,
 	)
