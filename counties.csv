@@ -1,0 +1,5 @@
+county_id,county_name,state,url
+broward_fl,Broward County,FL,https://www.broward.org/BCPERMITS/Pages/default.aspx
+cook_il,Cook County,IL,https://permits.cookcountyil.gov
+los_angeles_ca,Los Angeles County,CA,https://ladbs.org/services/check-status
+miami_dade_fl,Miami-Dade County,FL,https://www.miamidade.gov/permits/search
