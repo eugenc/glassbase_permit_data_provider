@@ -35,10 +35,23 @@ func maybeLineBuffered(ctx context.Context, program string, args []string) *exec
 	return exec.CommandContext(ctx, stdbufPath, wrapped...)
 }
 
+func claudeArgsForRepair(prompt string) []string {
+	// Non-interactive print mode args. Claude Code refuses --dangerously-skip-permissions when running
+	// as root (common for Docker/Railway); omit it on EUID 0 so repair can still start.
+	args := []string{"--print"}
+	if os.Geteuid() != 0 {
+		args = append(args, "--dangerously-skip-permissions")
+	} else {
+		log.Printf("[repair-ai] Claude Code: omitting --dangerously-skip-permissions (process is root; Claude Code forbids that flag under root)")
+	}
+	args = append(args, prompt)
+	return args
+}
+
 // claudeRepairCommand builds exec.Cmd for non-interactive Claude Code with the given prompt.
 // Resolution: CLAUDE_BIN → claude on PATH → npx -y @anthropic-ai/claude-code (if npx exists or CLAUDE_USE_NPX=1).
 func claudeRepairCommand(ctx context.Context, prompt string) (*exec.Cmd, error) {
-	claudeArgs := []string{"--print", "--dangerously-skip-permissions", prompt}
+	claudeArgs := claudeArgsForRepair(prompt)
 
 	if bin := strings.TrimSpace(os.Getenv("CLAUDE_BIN")); bin != "" {
 		log.Printf("[repair-ai] Claude Code CLI resolved to CLAUDE_BIN=%q", bin)
