@@ -54,6 +54,7 @@ func NewServer(pool *pgxpool.Pool, sched *runner.Scheduler, cfg *config.Config) 
 	apiMux.HandleFunc("GET /dashboard", deps.Dashboard())
 
 	apiMux.HandleFunc("GET /repairs/recent", deps.RecentRepairs())
+	apiMux.HandleFunc("GET /repairs/{id}/log", deps.RepairRunLog())
 
 	apiMux.HandleFunc("GET /counties", deps.ListCounties())
 	apiMux.HandleFunc("POST /counties", deps.AddCounty())

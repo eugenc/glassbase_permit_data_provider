@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/echayko/glassbase_permit_data_provider/internal/registry"
 	"github.com/echayko/glassbase_permit_data_provider/internal/repair"
 )
@@ -23,6 +26,20 @@ type repairRow struct {
 	FinishedAt    *time.Time `json:"finished_at"`
 	ErrorMessage  *string    `json:"error_message"`
 	OutputPreview string     `json:"output_preview"`
+}
+
+// repairDetail is a single repair run with full Claude Code transcript (GET /repairs/{id}/log).
+type repairDetail struct {
+	ID            int        `json:"id"`
+	CountyID      string     `json:"county_id"`
+	Trigger       string     `json:"trigger"`
+	Status        string     `json:"status"`
+	CommitSHA     *string    `json:"commit_sha"`
+	PRUrl         *string    `json:"pr_url"`
+	StartedAt     time.Time  `json:"started_at"`
+	FinishedAt    *time.Time `json:"finished_at"`
+	ErrorMessage  *string    `json:"error_message"`
+	ClaudeOutput  string     `json:"claude_output"`
 }
 
 // RecentRepairs returns the latest Claude Code repair attempts.
@@ -61,6 +78,50 @@ func (d *Deps) RecentRepairs() http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]interface{}{"repairs": repairs})
+	}
+}
+
+// RepairRunLog returns one repair_run row including full claude_output.
+func (d *Deps) RepairRunLog() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil || id < 1 {
+			http.Error(w, "invalid repair id", http.StatusBadRequest)
+			return
+		}
+
+		var rd repairDetail
+		var commit, prURL, errMsg *string
+		var finished *time.Time
+
+		rowErr := d.Pool.QueryRow(r.Context(), `
+			SELECT id, county_id, repair_trigger, status, commit_sha, pr_url,
+			       started_at, finished_at, error_message,
+			       COALESCE(claude_output, '')
+			FROM repair_runs
+			WHERE id = $1`, id).Scan(&rd.ID, &rd.CountyID, &rd.Trigger, &rd.Status,
+			&commit, &prURL, &rd.StartedAt, &finished, &errMsg, &rd.ClaudeOutput)
+
+		if rowErr != nil {
+			if errors.Is(rowErr, pgx.ErrNoRows) {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, rowErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		rd.CommitSHA = commit
+		rd.PRUrl = prURL
+		rd.FinishedAt = finished
+		rd.ErrorMessage = errMsg
+
+		writeJSON(w, http.StatusOK, rd)
 	}
 }
 

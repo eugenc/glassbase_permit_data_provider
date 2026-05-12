@@ -30,7 +30,7 @@ WORKDIR /app
 
 COPY --from=chrome /headless-shell /headless-shell
 
-RUN apk add --no-cache ca-certificates tzdata nodejs npm
+RUN apk add --no-cache ca-certificates coreutils tzdata nodejs npm
 
 RUN npm install -g @anthropic-ai/claude-code
 
