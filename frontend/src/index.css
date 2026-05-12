@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-brand: #0e76e4;
+  --color-brand-hover: #0a62c4;
+  --color-brand-light: #e8f1fd;
+  --color-brand-dark: #0959a8;
+
+  --color-canvas: #0b0e14;
+  --color-surface: #111622;
+  --color-elevated: #171d2e;
+  --color-border: #1f2a3d;
+  --color-border-subtle: #172035;
+
+  --color-text-1: #f0f4ff;
+  --color-text-2: #8b9bb4;
+  --color-text-3: #4d5e7a;
+
+  --color-status-active: #22c55e;
+  --color-status-active-bg: #0f2a1c;
+  --color-status-broken: #ef4444;
+  --color-status-broken-bg: #2a0b0b;
+  --color-status-paused: #f59e0b;
+  --color-status-paused-bg: #2a1f07;
+  --color-status-running: #0e76e4;
+  --color-status-running-bg: #0b1a2e;
+
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-modal: 0 8px 32px rgb(0 0 0 / 0.6);
+  --shadow-focus: 0 0 0 3px rgb(14 118 228 / 0.25);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background-color: var(--color-canvas);
+  color: var(--color-text-1);
+}
+
+#root {
+  min-height: 100vh;
+}

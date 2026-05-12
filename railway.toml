@@ -1,12 +1,6 @@
-# Railway: use Docker so headless Chrome (Rod) and migrations path match production.
-# Add a Railway Postgres plugin and set ANTHROPIC_API_KEY in Variables.
-# DATABASE_URL and PORT are injected automatically.
-
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+builder = "nixpacks"
+buildCommand = "cd frontend && npm ci && npm run build && cd .. && go build -o glassbase ./cmd/server"
 
 [deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 300
-restartPolicyType = "ON_FAILURE"
+startCommand = "./glassbase"

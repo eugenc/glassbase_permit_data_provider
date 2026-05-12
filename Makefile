@@ -1,7 +1,12 @@
-.PHONY: run run-now build test migrate onboard bulk-onboard
+.PHONY: run run-now build build-frontend build-all test migrate onboard bulk-onboard env-railway
 
 build:
 	go build -o bin/glassbase ./cmd/server
+
+build-frontend:
+	cd frontend && npm ci && npm run build
+
+build-all: build-frontend build
 
 run:
 	go run ./cmd/server

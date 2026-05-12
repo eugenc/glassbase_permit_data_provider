@@ -44,6 +44,11 @@ func tableNameFor(countyID string) string {
 	return "permits_" + sanitizeColName(countyID)
 }
 
+// PermitTableName returns the PostgreSQL table name for a county's permits (sanitized).
+func PermitTableName(countyID string) string {
+	return tableNameFor(countyID)
+}
+
 func sanitizeColName(s string) string {
 	s = strings.ToLower(s)
 	var b strings.Builder

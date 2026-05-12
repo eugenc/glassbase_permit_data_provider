@@ -89,6 +89,11 @@ func (s *Scheduler) RunNow() {
 	s.workers.RunAll(ctx)
 }
 
+// RunCounty triggers an immediate scrape for a single county (async).
+func (s *Scheduler) RunCounty(countyID string) error {
+	return s.workers.RunCounty(countyID)
+}
+
 func (s *Scheduler) Stop() {
 	ctx := s.cron.Stop()
 	<-ctx.Done()

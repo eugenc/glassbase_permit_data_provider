@@ -1,3 +1,11 @@
+FROM node:20-alpine AS frontend
+
+WORKDIR /src
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci
+COPY frontend ./frontend
+RUN cd frontend && npm run build
+
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
@@ -6,6 +14,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+COPY --from=frontend /src/internal/static/web ./internal/static/web
+
 RUN CGO_ENABLED=0 GOOS=linux go build -o /glassbase ./cmd/server
 
 FROM chromedp/headless-shell:latest AS chrome

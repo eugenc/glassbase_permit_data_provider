@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 
@@ -60,6 +61,29 @@ func (w *WorkerPool) RunAll(ctx context.Context) {
 
 	wg.Wait()
 	log.Printf("runner: batch complete")
+}
+
+// RunCounty scrapes one active county asynchronously (respects semaphore).
+func (w *WorkerPool) RunCounty(countyID string) error {
+	ctx := context.Background()
+	store := registry.NewStore(w.pool)
+	c, err := store.GetByCountyID(ctx, countyID)
+	if err != nil {
+		return err
+	}
+	if c == nil {
+		return fmt.Errorf("county not found")
+	}
+	if c.Status != "active" {
+		return fmt.Errorf("county must be active to run")
+	}
+
+	go func() {
+		w.sem <- struct{}{}
+		defer func() { <-w.sem }()
+		w.scrapeOne(context.Background(), c)
+	}()
+	return nil
 }
 
 func (w *WorkerPool) scrapeOne(ctx context.Context, county *registry.CountyConnector) {

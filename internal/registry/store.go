@@ -35,6 +35,27 @@ func scanCounty(row pgx.Row) (CountyConnector, error) {
 	return c, err
 }
 
+func (s *Store) GetAllVisible(ctx context.Context) ([]CountyConnector, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, county_id, county_name, state, url, source_type,
+			connector_config, status, last_generated_at, created_at, updated_at
+		 FROM county_connectors WHERE status <> 'deleted' ORDER BY state, county_name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []CountyConnector
+	for rows.Next() {
+		c, err := scanCounty(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) GetAll(ctx context.Context) ([]CountyConnector, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, county_id, county_name, state, url, source_type,
